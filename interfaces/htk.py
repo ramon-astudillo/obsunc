@@ -358,3 +358,19 @@ def readscp(scp_file, append_source=''):
         target_list = []
 
     return [source_list, target_list]
+
+
+def writescp(scp_file, file_list):
+    '''
+    Writes a list of files into a scp. If a list of two lists if given it
+    interprets the first as sources and the second as targets
+    ''' 
+    with open(scp_file, 'w') as f:
+        # Single list of paths
+        if isinstance(file_list[0], str):
+            for ffile in file_list:
+                f.write('%s\n' % ffile)
+        # Source/Target pairs
+        else:
+            for n, ffile in enumerate(file_list[0]):
+                f.write('%s\t%s\n' % (ffile, file_list[1][n]))
