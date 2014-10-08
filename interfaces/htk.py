@@ -335,6 +335,17 @@ def writemlf_fromdict(trans_dict, mlf_path, file_term='lab'):
             fid.write('\n')
         fid.write('.\n')
 
+
+def mlf_reg2key(token, mlf_dict):
+    '''
+    Sees if sentecne matches a regular expression of paths in a MLF
+    ''' 
+    for pathregxp in mlf_dict.keys():
+        if re.match(pathregxp.replace('*','.*'), token):
+            return pathregxp 
+    return None
+
+
 def readscp(scp_file, append_source=''):
     '''
     Read scp file. Append append_source to the source_file

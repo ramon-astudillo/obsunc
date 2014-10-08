@@ -12,13 +12,13 @@ REF_MICS = { 'BEDROOM':  'Wall/B1L.wav', 'LIVINGROOM': 'Array/LA6.wav',
              'CORRIDOR' : 'Wall/C1R.wav' } 
 
 # DIRHA corpus matching regexp
-DIRHA_SIM  = re.compile('.*/DIRHA_sim2/([A-z]+)/([a-z0-9]+)/sim([0-9]+)/'
+DIRHA_SIM  = re.compile('.*DIRHA_sim2/([A-z]+)/([a-z0-9]+)/sim([0-9]+)/'
                         'Signals/Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/'
                         '([A-Z0-9]+)\.([^\.]*)$') 
-DIRHA_GRID = re.compile('.*/dirha_grid/([a-z0-9]+)/sim([0-9]+)/Signals/'
+DIRHA_GRID = re.compile('.*grid_dirha/([a-z0-9]+)/sim([0-9]+)/Signals/'
                         'Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/([A-Z0-9]+)'
                         '\.([^\.]*)$') 
-EXTRACT_RE = re.compile('(.*)/([A-z]+)/([a-z0-9]+)/sim([0-9]+)/Signals/'
+EXTRACT_RE = re.compile('(.*)([A-z]+)/([a-z0-9]+)/sim([0-9]+)/Signals/'
                         'Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/([A-Z0-9]+)'
                         '\.([^\.]*)$')
 
@@ -73,6 +73,8 @@ def readmetadata(txt_path, in_fs=None, work_fs=None):
                 state   = 'source' 
                 # Start a dictionary for this source
                 source  = {}
+                # Start by storing the current txt_file
+                source['file'] = txt_path 
             else:
                 pass
         # On global state
@@ -210,8 +212,17 @@ class DirhaMicMetaData():
         ''' 
         # Get room
         room = src['pos'].split('_')[-1]
-        if room == 'CORR': 
-            room = 'CORRIDOR' 
+        # Fix for short-name notation
+        if room == 'BAT':
+            room = 'BATHROOM'
+        elif room == 'BEDROO' or room == 'BED':
+            room = 'BEDROOM';
+        elif room == 'CORR':
+            room = 'CORRIDOR';
+        elif room == 'KIT':
+            room =  'KITCHEN';
+        elif room == 'LIV':
+            room = 'LIVINGROOM';
         return (self.txt_path.split('/Mixed_Sources/')[0] 
                 + '/Mixed_Sources/' + room[0]  + room[1:].lower() 
                 +  '/' + REF_MICS[room]) 
@@ -229,7 +240,8 @@ class DirhaMicMetaData():
                                      "meta-data file %s" % (name, 
                                                             self.txt_path))
 
-    def get_sources_from_ref_mic(self):
+    def get_sources_from_ref_mic(self, regexp_fiter='sp_.*'):
+
         '''
         Returns speech events as seen from the respective reference 
         microphones in the room where they take place.
@@ -240,7 +252,7 @@ class DirhaMicMetaData():
         sources = {}
         # Loop over all sources, filter speech ones
         for src in self.sources:
-            if re.match('sp_.*', src['name']):
+            if re.match(regexp_fiter, src['name']):
                 # Get this speech event as seen from its reference microphone
                 # and append it 
                 ref_mic_path         = self.get_ref_mic_source(src) 
