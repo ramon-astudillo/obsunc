@@ -11,15 +11,23 @@ REF_MICS = { 'BEDROOM':  'Wall/B1L.wav', 'LIVINGROOM': 'Array/LA6.wav',
              'KITCHEN': 'Array/KA3.wav', 'BATHROOM': 'Wall/R1R.wav', 
              'CORRIDOR' : 'Wall/C1R.wav' } 
 
-# DIRHA corpus matching regexp
-DIRHA_SIM  = re.compile('.*DIRHA_sim2/([A-z]+)/([a-z0-9]+)/sim([0-9]+)/'
-                        'Signals/Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/'
-                        '([A-Z0-9]+)\.([^\.]*)$') 
-DIRHA_GRID = re.compile('.*grid_dirha/([a-z0-9]+)/sim([0-9]+)/Signals/'
-                        'Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/([A-Z0-9]+)'
+# DIRHA CORPUS MATCHING REGEXP
+# DIRHA simulated corpora
+DIRHA_SIM  = re.compile('.*/*DIRHA_sim2/+([A-Z]+)/+([a-z0-9]+)/+[a-z]*/*'
+                        'sim([0-9]+)/+Signals/+Mixed_Sources/+([A-Za-z]+)/+'
+                        '([A-Za-z]+)/+([A-Z0-9]+)\.([^\.]*)$')
+# GRID-DIRHA
+DIRHA_GRID = re.compile('.*/+dirha_grid/+([a-z0-9]+)/+sim([0-9]+)/+Signals/+'
+                        'Mixed_Sources/+([A-Za-z]+)/+([A-Za-z]+)/+([A-Z0-9]+)'
                         '\.([^\.]*)$') 
-EXTRACT_RE = re.compile('(.*)([A-z]+)/([a-z0-9]+)/sim([0-9]+)/Signals/'
-                        'Mixed_Sources/([A-Za-z]+)/([A-Za-z]+)/([A-Z0-9]+)'
+# GRID-DIRHA features
+DIRHA_GRID_MFC = re.compile('./features/(DIRHA_sim2/ITA|DIRHA_sim2/PT'
+                            '|DIRHA_sim2/GR|DIRHA_sim2/DE|grid_dirha)/'
+                            '(dev1|test1|test2)/sim([0-9]*)/Signals/'
+                            'detection.mfc') 
+# Extract parameters
+EXTRACT_RE = re.compile('(.*)/+([A-z]+)/+([a-z0-9]+)/+sim([0-9]+)/+Signals/+'
+                        'Mixed_Sources/+([A-Za-z]+)/+([A-Za-z]+)/+([A-Z0-9]+)'
                         '\.([^\.]*)$')
 
 
@@ -38,6 +46,10 @@ def readmetadata(txt_path, in_fs=None, work_fs=None):
                      Not that DIRHA_SIMII uses 48KHz wereas we work usually
                      at 16KHz  
     '''
+
+    # ADMIT ALSO THE WAV PATH INSTEAD OF TXT
+    if re.match('.*\.wav$', txt_path):
+        txt_path = re.sub('\.wav$', '.txt', txt_path)
 
     # DEDUCE SAMPLING FREQS IF NOT GIVEN
     if not in_fs:
