@@ -13,11 +13,11 @@ REF_MICS = { 'BEDROOM':  'Wall/B1L.wav', 'LIVINGROOM': 'Array/LA6.wav',
 
 # DIRHA CORPUS MATCHING REGEXP
 # DIRHA simulated corpora
-DIRHA_SIM  = re.compile('.*/*DIRHA_sim2/+([A-Z]+)/+([a-z0-9]+)/+[a-z]*/*'
+DIRHA_SIM  = re.compile('(.*)/*DIRHA_sim2/+([A-Z]+)/+([a-z0-9]+)/+[a-z]*/*'
                         'sim([0-9]+)/+Signals/+Mixed_Sources/+([A-Za-z]+)/+'
                         '([A-Za-z]+)/+([A-Z0-9]+)\.([^\.]*)$')
 # GRID-DIRHA
-DIRHA_GRID = re.compile('.*/+dirha_grid/+([a-z0-9]+)/+sim([0-9]+)/+Signals/+'
+DIRHA_GRID = re.compile('(.*)/+dirha_(grid)/+([a-z0-9]+)/+sim([0-9]+)/+Signals/+'
                         'Mixed_Sources/+([A-Za-z]+)/+([A-Za-z]+)/+([A-Z0-9]+)'
                         '\.([^\.]*)$') 
 # GRID-DIRHA features
@@ -25,11 +25,6 @@ DIRHA_GRID_MFC = re.compile('./features/(DIRHA_sim2/ITA|DIRHA_sim2/PT'
                             '|DIRHA_sim2/GR|DIRHA_sim2/DE|grid_dirha)/'
                             '(dev1|test1|test2)/sim([0-9]*)/Signals/'
                             'detection.mfc') 
-# Extract parameters
-EXTRACT_RE = re.compile('(.*)/+([A-z]+)/+([a-z0-9]+)/+sim([0-9]+)/+Signals/+'
-                        'Mixed_Sources/+([A-Za-z]+)/+([A-Za-z]+)/+([A-Z0-9]+)'
-                        '\.([^\.]*)$')
-
 
 def readmetadata(txt_path, in_fs=None, work_fs=None):
     '''
@@ -201,17 +196,23 @@ class DirhaMicMetaData():
         # Set also input frequency accordingly
         if DIRHA_SIM.match(txt_path): 
             in_fs = 48000
+            # EXTRACT CORPUS CHARACTERISTICS FROM METADATA FILE NAME
+            [self.root, self.lang, self.sset, sim, self.room, self.device, 
+             self.mic, self.ftype] = DIRHA_SIM.search(txt_path).groups() 
+            self.sim = int(sim)
+     
         elif DIRHA_GRID.match(txt_path): 
             in_fs = 16000 
+            # EXTRACT CORPUS CHARACTERISTICS FROM METADATA FILE NAME
+            [self.root, self.lang, self.sset, sim, self.room, self.device, 
+             self.mic, self.ftype] = DIRHA_GRID.search(txt_path).groups() 
+            self.sim = int(sim)
+     
         else: 
             raise EnvironmentError, ("%s does not seem to be a DIRHA corpus"
                                      " file" % txt_path)
 
-        # EXTRACT CORPUS CHARACTERISTICS FROM METADATA FILE NAME
-        [self.root, self.lang, self.sset, sim, self.room, self.device, 
-         self.mic, self.ftype] =  EXTRACT_RE.search(txt_path).groups() 
-        self.sim = int(sim)
-       
+
         # Extract data from the file
         self.glob, self.sources = readmetadata(txt_path, in_fs=in_fs, 
                                                work_fs=work_fs)
