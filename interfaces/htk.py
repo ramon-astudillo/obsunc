@@ -40,7 +40,23 @@ def nextpow2(N):
     while n<N: n *= 2
     return int(n)
 
-def readhtkconfig(file_path, prev_dict):
+def readhtkresult(file_path, stdout=False):
+    '''
+    CHAPUZA VERSION
+    '''
+    with open(file_path) as f:
+        lines = f.readlines() 
+    # Expected format
+    if lines[17].split()[1]  == 'Sum/Avg':
+        WER= lines[17].split()[9] 
+    else:
+        raise IOError, "Unknown format in htk result %s" % file_path
+    if stdout:
+        print WER 
+    else:
+        return WER
+
+def readhtkconfig(file_path, config, htk_units=False):
     '''
     Reads HTK style config into a dictionary 
 
@@ -50,22 +66,59 @@ def readhtkconfig(file_path, prev_dict):
     with open(file_path) as f:
         for line in f.readlines():
             if not (re.match('^\s*#.*$', line) or re.match('^\s*$', line)):
-                line            = line.split('#')[0].rstrip()
-                keyname         = line.split('=')[0].lstrip().rstrip().lower()
-                keyvalue        = line.split('=')[1].lstrip().rstrip()
+                
+                line     = line.split('#')[0].strip()
+                keyname  = line.split('=')[0].strip().lower()
+                keyvalue = line.split('=')[1].strip()
+
+                # If true/false, convert to logical  
+                if keyvalue == 'T':
+                     config[keyname] = True 
+                elif keyvalue == 'F':    
+                     config[keyname] = False 
                 # Try to convert to number
-                if keyvalue.isdigit():  
-                    prev_dict[keyname] = int(keyvalue)
+                elif keyvalue.isdigit():  
+                     config[keyname] = int(keyvalue)
                 else:
                     try:
-                        prev_dict[keyname] = float(keyvalue)
+                         config[keyname] = float(keyvalue)
                     except ValueError:
-                        prev_dict[keyname] = keyvalue
+                         config[keyname] = keyvalue
+
                 # Special case, extract custom_feats_folder from config path
                 if keyname == 'cff_from_config_path' and keyvalue == 'T':
-                    prev_dict['custom_feats_folder'] = os.path.dirname(file_path)
+                    config['custom_feats_folder'] = os.path.dirname(file_path)
+ 
+    # Translate HTK units (1e-7 secs) to normal units (samples, secs), also
+    # complete basic STFT config
+    if not htk_units:
+        # SAMPLING FREQUENCY  
+        if 'sourcerate' in config:
+            config['work_fs'] = int(1e7/config['sourcerate'])
+            config.pop('sourcerate') 
+        elif 'work_fs' not in config:
+            raise ValueError, "You need either to specifiy SOURCERATE or work_fs"
 
-    return prev_dict
+        # WINDOWSIZE AND SHIFT 
+        if ('targetrate' in config) and ('windowsize' in config):
+            config['shift']      = int(config['work_fs']*
+                                       config['targetrate']*1e-7) 
+            config['windowsize'] = int(config['work_fs']*
+                                       config['windowsize']*1e-7)
+            # Sanity check: Maybe windowsize was defined in samples
+            if config['windowsize'] == 0:
+                raise ValueError, ("windowsize seems to be given in samples HTK"
+                                   " units expected")
+            config['nfft']       = nextpow2(config['windowsize']) 
+            config.pop('targetrate') 
+        elif not (('shift' in config) and ('windowsize' in config)):
+            raise ValueError, ("Either targetrate and windowsize in HTK units or"
+                               "shift and windowsize in samples need to be defined")
+        elif 'nfft' not in config:
+            config['nfft'] = nextpow2(config['windowsize'])
+
+
+    return config
 
 def readhtkfeats(htkfeats_file):
     '''
@@ -75,7 +128,9 @@ def readhtkfeats(htkfeats_file):
 
     http://www.ee.ic.ac.uk/hp/staff/dmb/voicebox/voicebox.html
 
+    Ramon F. Astudillo
     '''
+
     # SANITY CHECK: FILE EXISTS
     if not os.path.isfile(htkfeats_file):
         raise IOError, "File %s does not exist" % htkfeats_file
@@ -212,6 +267,27 @@ def readmlf(mlf_path):
     return mlf 
 
 
+def writemlf(mlf, mlf_path, file_term='lab'):
+    '''
+    writes mlf from a list 
+    '''
+    # SANITY CHECK, folder where file must be written exists
+    target_path = os.path.split(mlf_path)[0]
+    if target_path != '' and not os.path.exists(target_path):
+        raise IOError, ("ERROR folder where to create MLF file"
+                         "%s does not exist") % (os.path.split(mlf_path)[0])
+    fid = open(mlf_path, 'w')
+    # For each utterance stored
+    fid.write('#!MLF!#\n')
+    for sent in mlf:
+        fid.write('\"%s\"\n' % (".".join(sent[0].split('.')[:-1]) + '.' 
+                  + file_term))
+        auxname = ''
+        name    = ''
+        for word in sent[1]:
+            fid.write(" ".join(word[:2] + [str(word[2])]  + word[3:]) + '\n')
+        fid.write('.\n')
+
 def readmlf2dict(mlf_path, keytype = 'filename'):
     '''
     READMLF2DICT: Reads an HTKs master label file returning a dictionary
@@ -340,7 +416,14 @@ def writemlf_fromdict(trans_dict, mlf_path, file_term='lab'):
     # For each utterance stored
     fid.write('#!MLF!#\n')
     for key in trans_dict.keys():
-        fid.write('\"*/%s\"\n' % (key))
+         
+        filename = os.path.basename(key)
+        if re.match('.*\..*', filename):
+            fid.write('\"%s\"\n' % (".".join(key.split('.')[:-1]) + '.' 
+                      + file_term))
+        else:
+            fid.write('\"%s\"\n' % (key + '.' + file_term))
+
         auxname = ''
         name    = ''
         for word in trans_dict[key]:
@@ -366,14 +449,33 @@ def writemlf_fromdict(trans_dict, mlf_path, file_term='lab'):
         fid.write('.\n')
 
 
-def mlf_reg2key(token, mlf_dict):
+def mlf_reg2key(token, mlf_dict, strict=False, unique=True):
     '''
     Sees if sentecne matches a regular expression of paths in a MLF
     ''' 
-    for pathregxp in mlf_dict.keys():
-        if re.match(pathregxp.replace('*','.*'), token):
-            return pathregxp 
-    return None
+    if unique:
+        for pathregxp in mlf_dict.keys():
+            if re.match(pathregxp.replace('*','.*'), token):
+                return pathregxp 
+        if strict:
+            raise EnvironmentError, ("An MLF was provided but it has no "
+                                     "transcription for %s" % token)
+        else:
+            return None     
+    else:
+        matches = []
+        for pathregxp in mlf_dict.keys():
+            if re.match(pathregxp.replace('*','.*'), token):
+                matches.append(pathregxp)
+
+        if strict and not len(matches):
+            raise EnvironmentError, ("An MLF was provided but it has no "
+                                     "transcriptions for %s" % token)
+
+        elif not len(matches):
+            return None     
+ 
+        return matches
 
 
 def readscp(scp_file, append_source=''):
@@ -396,7 +498,7 @@ def readscp(scp_file, append_source=''):
     # If no target pattern provided, just return source
     else:
         source_list = [(append_source + line.rstrip()) for line in line_list]
-        target_list = []
+        target_list = None
 
     return [source_list, target_list]
 
