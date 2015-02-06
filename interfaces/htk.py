@@ -10,6 +10,36 @@ import re
 import struct
 import numpy as np
 
+def targetkind2num(targetkind):
+    '''
+    Computes binary representation of TARGETKIND in HTK
+    '''
+    # TYPES AND MODIFIERS ALLOWED IN HTK
+    types = ['WAVEFORM', 'LPC', 'LPREFC', 'LPCEPSTRA', 'LPDELCEP', 'IREFC', 
+             'MFCC', 'FBANK', 'MELSPEC', 'USER', 'DISCRETE', 'PLP', 'ANON']
+    mods  = ['E', 'N', 'D', 'A', 'C', 'Z', 'K', '0', 'V', 'T']
+    # TYPE AND MODIFIERS OF THE FEATURE VECTOR
+    tokens = targetkind.split('_')
+    if tokens[0] not in types:
+        raise ValueError, "Unknown TARGETKIND type %s" % tokens[0]
+    # COMPUTE HTK FORMAT
+    # type
+    htk_format = types.index(tokens[0])
+    # Modifiers
+    for mod in tokens[1:]:
+        if mod not in mods:
+            raise ValueError, "Unknown TARGETKIND modifier %s" % mod
+        htk_format += 2**(6 + mods.index(mod)) 
+    return htk_format 
+
+def nextpow2(N):
+    '''
+    Raise N to the nex power of 2 
+    '''
+    n = 1
+    while n<N: n *= 2
+    return int(n)
+
 def readhtkconfig(file_path, prev_dict):
     '''
     Reads HTK style config into a dictionary 
@@ -33,7 +63,7 @@ def readhtkconfig(file_path, prev_dict):
                         prev_dict[keyname] = keyvalue
                 # Special case, extract custom_feats_folder from config path
                 if keyname == 'cff_from_config_path' and keyvalue == 'T':
-                    prev_dict['CUSTOM_FEATS_FOLDER'] = os.path.dirname(file_path)
+                    prev_dict['custom_feats_folder'] = os.path.dirname(file_path)
 
     return prev_dict
 

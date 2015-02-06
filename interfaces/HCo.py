@@ -167,7 +167,7 @@ def parse_HCopy_args(HCopy_args, HTK_cf=None):
     # Feature extraction path exists
     if not os.path.exists(HTK_cf['custom_feats_folder']):
         raise OSError, ("The feature extraction code could not"
-                        " be found on %s") % HTK_cf['CUSTOM_FEATS_FOLDER']
+                        " be found on %s") % HTK_cf['custom_feats_folder']
     # Check for valid SCP file
     # File list or files provided
     if no_files and no_scp:
@@ -189,7 +189,7 @@ if __name__ == '__main__':
 
     # REMOVE FLAGS INTENDED FOR HCO.PY FROM THE CONFIG
     do_resume = 0
-    for fieldname in HTK_config.keys:
+    for fieldname in HTK_config.keys():
         if fieldname == 'do_resume':
             do_resume = HTK_config['do_resume']
             HTK_config.pop('do_resume')
