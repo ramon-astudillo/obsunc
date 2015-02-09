@@ -38,6 +38,7 @@ import os
 # it is not installed. 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../')
 import interfaces.htk as htk 
+import interfaces.audio as au
 
 ####################
 #     FUNCTIONS
@@ -199,14 +200,13 @@ if __name__ == '__main__':
         sys.path.append(HTK_config['custom_feats_folder'])
         import custom_feat
         # Initialize
-        features = custom_feat.FRONTEND(HTK_config['custom_feats_folder'], 
-                                        HTK_config)
+        features = custom_feat.FE(HTK_config)
     else:
         raise EnvironmentError, ("You need to specify CUSTOM_FEATS_FOLDER "
                                  "variable in the config")
 
     # CHECK FOR VALID CONFIG
-    features.validate_config()
+    custom_feat.validate_config(HTK_config)
 
     # RUN FEATURE EXTRACTION ON BATCH MODE 
     n_files = len(source_files)
@@ -233,10 +233,6 @@ if __name__ == '__main__':
                 except OSError:    
                     print "Folder %s could not be created" % target_folder 
     
-        # Read audio
-        features.read(source_files[i])
         # Extract features 
-        features.extract()    
-        # Write features
-        features.write(target_files[i])
-        print ""
+        features.extract(source_files[i],target_files[i])    
+    print ""
